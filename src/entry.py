@@ -9,7 +9,7 @@ from paper import PaperInfo, PaperNotFoundError, fetch_live_paper_info
 logger = logging.getLogger(__name__)
 
 MANUSCRIPT_ID = "18003827-1245-452b-b4a5-e2afc2fa8676"
-NOTIFY_TOPIC = f"paper_info_updates/{MANUSCRIPT_ID}"
+NOTIFY_TOPIC = f"paper-info-updates-{MANUSCRIPT_ID}"
 
 
 async def send_ntfy_sh(topic: str, message: str):

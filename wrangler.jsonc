@@ -1,6 +1,6 @@
 {
 	"$schema": "node_modules/wrangler/config-schema.json",
-	"name": "manuscript-checker",
+	"name": "manuscript-checker-cf",
 	"main": "src/entry.py",
 	"compatibility_date": "2026-07-08",
 	"compatibility_flags": ["python_workers"],

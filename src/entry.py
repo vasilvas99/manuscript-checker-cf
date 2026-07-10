@@ -67,6 +67,14 @@ async def notify_paper_info_update(
 class Default(WorkerEntrypoint):
     async def fetch(self, request):
         paper = await get_stored_paper(self.env.DB, MANUSCRIPT_ID)
+        
+        if paper is None:
+            return Response(
+                f"No stored paper info for manuscript ID {MANUSCRIPT_ID}",
+                status=404,
+                headers={"Content-Type": "text/plain"},
+            )
+            
         return Response(
             paper.model_dump_json(),
             status=200,

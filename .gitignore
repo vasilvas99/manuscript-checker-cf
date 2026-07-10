@@ -65,4 +65,10 @@ jspm_packages/
 # python-specific
 python_modules/
 .venv/
+.venv_wsl/
 .venv-workers/
+pylock.toml
+.ruff_cache/
+
+# claude
+.claude/

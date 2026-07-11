@@ -5,15 +5,21 @@ description = "A simple cron that tracks updates to an Elsevier manuscript revie
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "httpx2>=2.5.0",
     "pydantic==2.10.6",
+    "pydantic-settings>=2.14.2",
 ]
 
-[dependency-groups]
-dev = [
-    "ruff>=0.15.20",
-    "workers-py",
-    "workers-runtime-sdk",
-]
+[project.scripts]
+manuscript-checker = "entry:main"
+
+[build-system]
+requires = ["setuptools>=80"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+py-modules = ["db", "entry", "notify", "paper"]
 
 [tool.ruff.lint]
 extend-select = [
@@ -35,4 +41,3 @@ extend-select = [
     "NPY",      # Some numpy-specific things
     "FURB",     # Suggest more idiomatic Python patterns
 ]
-

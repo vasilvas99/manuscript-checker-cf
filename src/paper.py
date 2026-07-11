@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from uuid import UUID  # noqa: TC003
 
+import httpx2
 from pydantic import AwareDatetime, BaseModel, Field
-from workers import fetch as webfetch
 
 TRACKER_API_BASE = "https://tnlkuelk67.execute-api.us-east-1.amazonaws.com/tracker"
 
@@ -33,12 +33,13 @@ class PaperInfo(BaseModel):
     review_summary: ReviewSummary = Field(alias="ReviewSummary")
 
 
-async def fetch_live_paper_info(manuscript_id: UUID | str) -> PaperInfo:
+def fetch_live_paper_info(manuscript_id: UUID | str) -> PaperInfo:
     manuscript_id = str(manuscript_id)
-    response = await webfetch(f"{TRACKER_API_BASE}/{manuscript_id}")
-    if response.status == 404:
+    with httpx2.Client() as client:
+        response = client.get(f"{TRACKER_API_BASE}/{manuscript_id}", timeout=30)
+    if response.status_code == 404:
         raise PaperNotFoundError(f"Paper with ID {manuscript_id} not found")
-    if response.status != 200:
-        raise Exception(f"Failed to fetch paper info: {response.status}")
-    data = await response.json()
+    if response.status_code != 200:
+        raise RuntimeError(f"Failed to fetch paper info: {response.status_code}")
+    data = response.json()
     return PaperInfo.model_validate(data)

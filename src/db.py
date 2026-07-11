@@ -1,4 +1,8 @@
 import logging
+import sqlite3
+from collections.abc import Iterator
+from contextlib import contextmanager
+from pathlib import Path
 from uuid import UUID
 
 from paper import PaperInfo
@@ -6,10 +10,50 @@ from paper import PaperInfo
 logger = logging.getLogger(__name__)
 
 
-async def get_stored_paper(db, uuid: UUID | str) -> PaperInfo | None:
-    row = (
-        await db.prepare(
-            """
+@contextmanager
+def connect_db(path: Path) -> Iterator[sqlite3.Connection]:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    db = sqlite3.connect(path)
+    db.row_factory = sqlite3.Row
+    try:
+        initialize_db(db)
+        yield db
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    finally:
+        db.close()
+
+
+def initialize_db(db: sqlite3.Connection) -> None:
+    db.execute(
+        """
+        CREATE TABLE IF NOT EXISTS paper_info (
+            uuid TEXT PRIMARY KEY,
+            corresponding_author TEXT NOT NULL,
+            document_id INTEGER NOT NULL,
+            first_author TEXT NOT NULL,
+            journal_acronym TEXT NOT NULL,
+            journal_name TEXT NOT NULL,
+            last_updated TEXT NOT NULL,
+            latest_revision_number INTEGER NOT NULL,
+            manuscript_title TEXT NOT NULL,
+            pubd_number TEXT NOT NULL,
+            status INTEGER NOT NULL,
+            submission_date TEXT NOT NULL,
+            review_summary_reviews_completed INTEGER NOT NULL,
+            review_summary_review_invitations_accepted INTEGER NOT NULL,
+            review_summary_review_invitations_sent INTEGER NOT NULL
+        )
+        """
+    )
+    db.commit()
+
+
+def get_stored_paper(db: sqlite3.Connection, uuid: UUID | str) -> PaperInfo | None:
+    row = db.execute(
+        """
         SELECT
             uuid,
             corresponding_author,
@@ -29,11 +73,9 @@ async def get_stored_paper(db, uuid: UUID | str) -> PaperInfo | None:
         FROM paper_info
         WHERE uuid = ?
         LIMIT 1
-        """
-        )
-        .bind(str(uuid))
-        .first()
-    )
+        """,
+        (str(uuid),),
+    ).fetchone()
 
     if row is None:
         return None
@@ -63,13 +105,12 @@ async def get_stored_paper(db, uuid: UUID | str) -> PaperInfo | None:
     )
 
 
-async def upsert_stored_paper(db, paper: PaperInfo) -> PaperInfo:
+def upsert_stored_paper(db: sqlite3.Connection, paper: PaperInfo) -> PaperInfo:
     data = paper.model_dump(by_alias=True, mode="json")
     review_summary = data["ReviewSummary"]
 
-    await (
-        db.prepare(
-            """
+    db.execute(
+        """
         INSERT INTO paper_info (
             uuid,
             corresponding_author,
@@ -100,12 +141,11 @@ async def upsert_stored_paper(db, paper: PaperInfo) -> PaperInfo:
             pubd_number = excluded.pubd_number,
             status = excluded.status,
             submission_date = excluded.submission_date,
-            review_summary_reviews_completed = excluded.review_summary_reviews_completed,  -- noqa
-            review_summary_review_invitations_accepted = excluded.review_summary_review_invitations_accepted,  -- noqa
-            review_summary_review_invitations_sent = excluded.review_summary_review_invitations_sent  -- noqa
-        """  # noqa: E501
-        )
-        .bind(
+            review_summary_reviews_completed = excluded.review_summary_reviews_completed,
+            review_summary_review_invitations_accepted = excluded.review_summary_review_invitations_accepted,
+            review_summary_review_invitations_sent = excluded.review_summary_review_invitations_sent
+        """, #noqa E501
+        (
             data["Uuid"],
             data["CorrespondingAuthor"],
             data["DocumentId"],
@@ -121,11 +161,11 @@ async def upsert_stored_paper(db, paper: PaperInfo) -> PaperInfo:
             review_summary["ReviewsCompleted"],
             review_summary["ReviewInvitationsAccepted"],
             review_summary["ReviewInvitationsSent"],
-        )
-        .run()
+        ),
     )
+    db.commit()
 
-    saved_paper = await get_stored_paper(db, data["Uuid"])
+    saved_paper = get_stored_paper(db, data["Uuid"])
 
     if saved_paper is None:
         raise RuntimeError(f"Failed to upsert paper with UUID {data['Uuid']}")
@@ -133,5 +173,6 @@ async def upsert_stored_paper(db, paper: PaperInfo) -> PaperInfo:
     return saved_paper
 
 
-async def delete_stored_paper(db, uuid: UUID | str) -> None:
-    await db.prepare("DELETE FROM paper_info WHERE uuid = ?").bind(str(uuid)).run()
+def delete_stored_paper(db: sqlite3.Connection, uuid: UUID | str) -> None:
+    db.execute("DELETE FROM paper_info WHERE uuid = ?", (str(uuid),))
+    db.commit()

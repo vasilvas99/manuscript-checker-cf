@@ -69,6 +69,17 @@ python_modules/
 .venv-workers/
 pylock.toml
 .ruff_cache/
+.uv-cache/
+build/
+dist/
+*.egg-info/
+*.sqlite3
+*.sqlite3-*
 
 # claude
 .claude/
+.agents/
+
+# other
+.idea
+__pycache__/
